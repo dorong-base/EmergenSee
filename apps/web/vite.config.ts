@@ -17,6 +17,7 @@ export default defineConfig({
   },
   server: {
     host: true,
+    allowedHosts: true,
     port: 5173,
     headers: {
       // Required by Google Identity Services to allow the sign-in popup
@@ -24,8 +25,10 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
+        ws: true,
+        rewrite: requestPath => requestPath.replace(/^\/api/, ''),
       },
     },
   },

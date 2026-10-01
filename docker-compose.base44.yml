@@ -1,0 +1,86 @@
+services:
+  mongodb:
+    image: mongo:7-jammy
+    restart: on-failure
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ping: 1}).ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  dependencies:
+    image: node:22-bookworm
+    working_dir: /app
+    volumes:
+      - .:/app
+      - pnpm_cache:/root/.cache/node/corepack
+    command: ["sh", "-ec", "corepack pnpm install --frozen-lockfile && corepack pnpm --filter @emergensee/shared build"]
+    environment:
+      CI: "true"
+
+  api:
+    image: node:22-bookworm
+    restart: on-failure
+    working_dir: /app
+    volumes:
+      - .:/app
+      - pnpm_cache:/root/.cache/node/corepack
+      - uploads:/app/apps/api/uploads
+    env_file:
+      - /run/base44/app.env
+    environment:
+      NODE_ENV: development
+      PORT: "3001"
+      MONGODB_URI: mongodb://mongodb:27017/emergensee
+      CORS_ORIGIN: https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      TSC_WATCHFILE: DynamicPriorityPolling
+    command: ["sh", "-ec", "exec corepack pnpm --filter @emergensee/api dev"]
+    depends_on:
+      dependencies:
+        condition: service_completed_successfully
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/docs-json', {signal: AbortSignal.timeout(4000)}).then(r => {if (!r.ok) throw Error('API unavailable')}).catch(e => {console.error(e.message); process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web:
+    image: node:22-bookworm
+    restart: on-failure
+    working_dir: /app
+    volumes:
+      - .:/app
+      - pnpm_cache:/root/.cache/node/corepack
+    ports:
+      - "3000:5173"
+    env_file:
+      - /run/base44/app.env
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: https://3000-${BASE44_PUBLIC_HOST_SUFFIX}/api
+      API_PROXY_TARGET: http://api:3001
+      CHOKIDAR_USEPOLLING: "true"
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: ${__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS}
+    command: ["sh", "-ec", "exec corepack pnpm --filter @emergensee/web dev --host 0.0.0.0"]
+    depends_on:
+      dependencies:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/', {signal: AbortSignal.timeout(4000)}).then(r => {if (!r.ok) throw Error('Web unavailable')}).catch(e => {console.error(e.message); process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mongodb_data:
+  pnpm_cache:
+  uploads:

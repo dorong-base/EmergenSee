@@ -1,0 +1,13 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {"name": "JWT_SECRET", "description": "Access-token signing key", "requiredAtBoot": true, "generatedForDevelopment": true},
+    {"name": "JWT_REFRESH_SECRET", "description": "Refresh-token signing key", "requiredAtBoot": true, "generatedForDevelopment": true},
+    {"name": "GOOGLE_CLIENT_ID", "description": "Optional Google OAuth web client ID from Google Cloud Console", "requiredAtBoot": false},
+    {"name": "VITE_GOOGLE_CLIENT_ID", "description": "Same optional Google OAuth web client ID for the frontend", "requiredAtBoot": false},
+    {"name": "FACE_RECOGNITION_URL", "description": "Optional face-recognition service base URL reachable by the API; service source is not in this repository", "requiredAtBoot": false},
+    {"name": "VITE_FACE_API_URL", "description": "Optional HTTPS face-recognition service base URL reachable by the browser with CORS enabled", "requiredAtBoot": false}
+  ]
+}
